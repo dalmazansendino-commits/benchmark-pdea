@@ -478,7 +478,8 @@
   <button onclick="showPanel('instructivo')" style="margin-left:auto">📋 Instructivo</button>
   <button class="active" onclick="showPanel('carga')">① Cargar Datos</button>
   <button onclick="showPanel('historial')">② Mi Historial</button>
-  <button onclick="showPanel('enviar')">③ Enviar a Daniel</button>
+  <button onclick="showPanel('mireporte')">③ Mi Reporte</button>
+  <button onclick="showPanel('enviar')">④ Reenviar (manual)</button>
 </nav>
 
 <div class="container">
@@ -774,6 +775,7 @@
       <button class="btn btn-secondary" onclick="limpiarForm()">↺ Limpiar</button>
       <button class="btn btn-primary" onclick="showPanel('historial')" style="margin-left:auto">→ Ver historial</button>
     </div>
+    <div id="guardar-status" style="margin-top:16px"></div>
   </div>
 
   <!-- ===== PANEL INSTRUCTIVO ===== -->
@@ -841,12 +843,11 @@
 
       <div style="background:white;border-radius:10px;border:1.5px solid var(--crema-oscuro);padding:24px">
         <div style="font-size:2rem;margin-bottom:10px">⑤</div>
-        <div style="font-family:'Playfair Display',serif;font-size:1.05rem;color:var(--verde);margin-bottom:8px">Guardar y Enviar</div>
+        <div style="font-family:'Playfair Display',serif;font-size:1.05rem;color:var(--verde);margin-bottom:8px">Guardar</div>
         <ul style="font-size:0.85rem;color:var(--verde-medio);line-height:1.9;padding-left:18px">
           <li>Tocá <strong>✓ Guardar Período</strong></li>
-          <li>Andá a la pestaña <strong>③ Enviar a Daniel</strong></li>
-          <li>Tocá el botón <strong>Enviar</strong></li>
-          <li>¡Listo! Los datos llegan automáticamente</li>
+          <li>Listo — se envía solo a Daniel automáticamente</li>
+          <li>No necesitás hacer nada más</li>
         </ul>
       </div>
 
@@ -878,21 +879,55 @@
         <div class="meta">Todos los ejercicios cargados — podés editar o eliminar períodos individuales</div>
       </div>
     </div>
+
+    <!-- COMPARTIR CON EL EQUIPO -->
+    <div style="background:white;border:1.5px solid var(--oro);border-radius:8px;padding:20px 24px;margin-bottom:24px">
+      <div style="font-family:'Playfair Display',serif;font-size:1.02rem;color:var(--verde);margin-bottom:6px">👥 Compartir con mi equipo</div>
+      <div style="font-size:0.82rem;color:var(--gris);margin-bottom:16px">Los datos cargados solo se ven en este navegador. Si un compañero de tu empresa ya cargó información, pueden sincronizarla así:</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div>
+          <div style="font-size:0.78rem;font-weight:600;color:var(--verde-medio);margin-bottom:8px">📤 EXPORTAR (compartir lo que cargué)</div>
+          <button class="btn btn-secondary" onclick="exportarMisDatos()" style="font-size:0.8rem">Descargar mis datos (.json)</button>
+          <div style="font-size:0.72rem;color:var(--gris);margin-top:8px">Mandale el archivo descargado a tu compañero por WhatsApp o mail.</div>
+        </div>
+        <div>
+          <div style="font-size:0.78rem;font-weight:600;color:var(--verde-medio);margin-bottom:8px">📥 IMPORTAR (recibir de un compañero)</div>
+          <input type="file" id="import-equipo-file" accept=".json" onchange="importarDeEquipo(this)" style="padding:7px;background:var(--crema);border:1.5px solid var(--crema-oscuro);border-radius:5px;font-family:'IBM Plex Sans',sans-serif;font-size:0.78rem;width:100%">
+          <div style="font-size:0.72rem;color:var(--gris);margin-top:8px">Subí el archivo que te mandó tu compañero.</div>
+        </div>
+      </div>
+      <div id="import-equipo-status" style="margin-top:14px"></div>
+    </div>
+
     <div id="historial-container"></div>
     <div class="btn-row" style="margin-top:20px">
       <button class="btn btn-primary" onclick="showPanel('carga')">+ Cargar nuevo período</button>
-      <button class="btn btn-gold" onclick="showPanel('enviar')">→ Enviar a Daniel</button>
+      <button class="btn btn-gold" onclick="showPanel('enviar')">→ Reenviar (manual)</button>
     </div>
+  </div>
+
+  <!-- ===== PANEL MI REPORTE ===== -->
+  <div class="panel" id="panel-mireporte">
+    <div class="empresa-header">
+      <div>
+        <div class="nombre">Mi Reporte de Indicadores</div>
+        <div class="meta">Vista personal de tu situación financiera — no incluye datos de otras empresas</div>
+      </div>
+    </div>
+    <div id="mireporte-selector" style="margin-bottom:20px"></div>
+    <div id="mireporte-container"></div>
   </div>
 
   <!-- ===== PANEL ENVIAR ===== -->
   <div class="panel" id="panel-enviar">
     <div class="empresa-header">
       <div>
-        <div class="nombre">Enviar datos a Daniel Almazán Sendino</div>
-        <div class="meta">Se envían todos tus períodos históricos. Daniel los usará para el reporte del grupo.</div>
+        <div class="nombre">Reenviar a Daniel Almazán Sendino</div>
+        <div class="meta">Tus datos ya se envían automáticamente cada vez que guardás un período. Usá esto solo si necesitás reenviar manualmente.</div>
       </div>
     </div>
+    <div class="notice" style="margin-bottom:20px">✅ <strong>Envío automático activado.</strong> No necesitás hacer nada más después de guardar — pero si por algún motivo querés reenviar tus datos, podés hacerlo acá.</div>
     <div id="enviar-status" style="margin-bottom:16px"></div>
     <div id="enviar-preview"></div>
   </div>
@@ -1082,8 +1117,12 @@ function guardarEmpresa() {
 
   localStorage.setItem('benchmark_empresas', JSON.stringify(empresas));
   updateHeaderCount();
+
+  // Auto-enviar a Daniel
+  const empGuardada = empresas.find(e => e.nombre === nombre);
+  if (empGuardada) enviarDatosAuto(empGuardada.id);
+
   limpiarForm();
-  showPanel('historial');
 }
 
 function limpiarForm() {
@@ -1167,13 +1206,14 @@ function eliminarEmpresa(id) { eliminarPeriodo(id, ''); }
 function showPanel(name) {
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('nav button').forEach((b,i)=>{
-    const panels = ['instructivo','carga','historial','enviar'];
+    const panels = ['instructivo','carga','historial','mireporte','enviar'];
     b.classList.toggle('active', panels[i]===name);
   });
   const el = $('panel-'+name);
   if(el) el.classList.add('active');
   if (name === 'historial') renderHistorial();
   if (name === 'enviar') renderEnviar();
+  if (name === 'mireporte') renderMiReporte();
 }
 
 function updateHeaderCount() {
@@ -1562,10 +1602,11 @@ function renderEnviar() {
   });
 }
 
-function enviarDatos(empId) {
+function enviarDatos(empId, statusElId) {
   const e = empresas.find(x=>x.id===empId);
   if (!e) return;
-  const st = $('enviar-status');
+  const st = $(statusElId || 'enviar-status');
+  if (!st) return;
   st.innerHTML = `<div class="notice" style="background:#e8f5ec;border-color:#4a8c5c;color:var(--verde)">⏳ Enviando datos de <strong>${e.nombre}</strong>...</div>`;
 
   const datos = JSON.stringify(e);
@@ -1590,6 +1631,35 @@ function enviarDatos(empId) {
   .catch(()=>fallbackEnviar(e,st));
 }
 
+function enviarDatosAuto(empId) {
+  const e = empresas.find(x=>x.id===empId);
+  if (!e) return;
+  const st = $('guardar-status');
+  if (!st) return;
+  st.innerHTML = `<div class="notice" style="background:#e8f5ec;border-color:#4a8c5c;color:var(--verde)">✅ Período guardado. Enviando a Daniel...</div>`;
+
+  const datos = JSON.stringify(e);
+
+  fetch('https://formsubmit.co/ajax/dalmazansendino@gmail.com', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({
+      _subject: `Benchmark PDEA — ${e.nombre} — ${(e.periodos||[]).length} períodos`,
+      _captcha: 'false',
+      empresa: e.nombre,
+      periodos: (e.periodos||[]).map(p=>p.fecha).join(', '),
+      datos_completos: datos
+    })
+  })
+  .then(r=>r.json())
+  .then(res=>{
+    if(res.success==='true'||res.success===true){
+      st.innerHTML=`<div class="notice" style="background:#e8f5ec;border-color:#4a8c5c;color:var(--verde-medio)">✅ Período guardado y enviado a Daniel automáticamente. ¡Listo!</div>`;
+    } else { fallbackEnviar(e, st); }
+  })
+  .catch(()=>fallbackEnviar(e,st));
+}
+
 function fallbackEnviar(e, st) {
   const datos = encodeURIComponent(JSON.stringify(e));
   const sub = encodeURIComponent(`Benchmark PDEA — ${e.nombre}`);
@@ -1597,6 +1667,171 @@ function fallbackEnviar(e, st) {
     📧 <strong>Hacé click para enviar por mail:</strong><br><br>
     <a href="mailto:dalmazansendino@gmail.com?subject=${sub}&body=${datos}" class="btn btn-gold" style="display:inline-block">Abrir mail →</a>
   </div>`;
+}
+
+// ---- COMPARTIR CON EQUIPO ----
+function exportarMisDatos() {
+  if (!empresas.length) { alert('No hay datos cargados para exportar.'); return; }
+  const blob = new Blob([JSON.stringify(empresas, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const nombreArchivo = (empresas[0].nombre || 'empresa').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  a.href = url;
+  a.download = `pdea_${nombreArchivo}_${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function importarDeEquipo(input) {
+  const st = $('import-equipo-status');
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      const lista = Array.isArray(data) ? data : [data];
+      let nuevos = 0, periodosNuevos = 0, periodosAct = 0;
+      lista.forEach(e => {
+        if (!e.nombre) return;
+        let emp = empresas.find(x => x.nombre === e.nombre);
+        const periodosIn = e.periodos || (e.ac ? [e] : []);
+        if (!emp) {
+          emp = { id: Date.now() + Math.random(), nombre: e.nombre, moneda: e.moneda || 'USD', periodos: [] };
+          empresas.push(emp);
+          nuevos++;
+        }
+        periodosIn.forEach(p => {
+          const pIdx = emp.periodos.findIndex(x => x.fecha === p.fecha);
+          if (pIdx >= 0) { emp.periodos[pIdx] = p; periodosAct++; }
+          else { emp.periodos.push(p); periodosNuevos++; }
+        });
+        emp.periodos.sort((a,b) => a.fecha > b.fecha ? 1 : -1);
+      });
+      localStorage.setItem('benchmark_empresas', JSON.stringify(empresas));
+      updateHeaderCount();
+      st.innerHTML = `<div class="notice" style="background:#e8f5ec;border-color:#4a8c5c;color:var(--verde-medio)">✅ Sincronizado: ${periodosNuevos} período${periodosNuevos!==1?'s':''} nuevo${periodosNuevos!==1?'s':''}, ${periodosAct} actualizado${periodosAct!==1?'s':''}.</div>`;
+      renderHistorial();
+      input.value = '';
+    } catch {
+      st.innerHTML = `<div class="notice" style="background:#fdf0ee;border-color:var(--rojo);color:var(--rojo)">❌ Archivo inválido. Pedile a tu compañero que lo vuelva a exportar.</div>`;
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ---- MI REPORTE (con/sin tierra) ----
+let miReporteModo = 'con';
+
+function calcIndicadoresModo(p, modo) {
+  const ac = p.ac.total;
+  const pc = p.pc.total;
+  const ancTotal = p.anc ? p.anc.total : 0;
+  const pncVal = p.pnc ? p.pnc.dlp : 0;
+  const tierra = p.anc ? (p.anc.tierra || 0) : 0;
+  const restar = modo === 'sin' ? tierra : 0;
+  const activoTotal = ac + ancTotal - restar;
+  const pasivoTotal = pc + pncVal;
+  const pn = activoTotal - pasivoTotal;
+
+  const ind = { activoTotal, pasivoTotal, pn, tierra, ac, pc };
+  ind.liquidez = pc > 0 ? ac / pc : null;
+  ind.ct = ac - pc;
+  ind.calidadDeuda = pasivoTotal > 0 ? pc / pasivoTotal : null;
+  ind.endeudamiento = pn > 0 ? pasivoTotal / pn : null;
+  ind.respaldo = activoTotal > 0 ? pn / activoTotal : null;
+  if (p.result) {
+    ind.bn = p.result.bn;
+    ind.roa = activoTotal > 0 ? p.result.bn / activoTotal : null;
+    ind.roe = pn > 0 ? p.result.bn / pn : null;
+  }
+  return ind;
+}
+
+function renderMiReporte() {
+  const sel = $('mireporte-selector'), cont = $('mireporte-container');
+  if (!sel || !cont) return;
+  if (!empresas.length) {
+    cont.innerHTML = `<div class="empty"><h3>Sin datos todavía</h3><p>Cargá tu primer período desde <strong>① Cargar Datos</strong></p></div>`;
+    sel.innerHTML = '';
+    return;
+  }
+  const emp = empresas[0];
+  const periodos = emp.periodos || [emp];
+  if (!periodos.length) { cont.innerHTML = `<div class="empty"><h3>Sin períodos</h3></div>`; return; }
+
+  const selVal = $('mireporte-periodo')?.value || periodos[periodos.length-1].fecha;
+
+  sel.innerHTML = `<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:10px">
+      <label style="font-family:'IBM Plex Mono',monospace;font-size:0.78rem;color:var(--gris)">EJERCICIO</label>
+      <select id="mireporte-periodo" onchange="renderMiReporte()" style="background:white;border:1.5px solid var(--crema-oscuro);border-radius:5px;padding:7px 12px;font-family:'IBM Plex Sans',sans-serif;font-size:0.88rem;color:var(--verde)">
+        ${periodos.map(p=>`<option value="${p.fecha}" ${p.fecha===selVal?'selected':''}>${p.fecha}</option>`).join('')}
+      </select>
+    </div>
+  </div>`;
+
+  const p = periodos.find(x => x.fecha === selVal) || periodos[periodos.length-1];
+  const sym = emp.moneda === 'USD' ? 'U$S' : '$';
+  const tierra = p.anc ? (p.anc.tierra || 0) : 0;
+
+  const indCon = calcIndicadoresModo(p, 'con');
+  const indSin = calcIndicadoresModo(p, 'sin');
+  const ind = miReporteModo === 'sin' ? indSin : indCon;
+
+  const pct = v => v == null ? '—' : (v*100).toFixed(1) + '%';
+  const ratio = v => v == null ? '—' : v.toFixed(2) + 'x';
+  const money = v => v == null ? '—' : sym + ' ' + numFmt(Math.round(v));
+
+  const toggleHtml = tierra > 0 ? `
+    <div style="display:flex;gap:0;margin-bottom:24px;border:1.5px solid var(--oro);border-radius:8px;overflow:hidden;width:fit-content">
+      <button onclick="miReporteModo='con';renderMiReporte()" style="padding:10px 22px;border:none;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;font-size:0.85rem;font-weight:600;background:${miReporteModo==='con'?'var(--oro)':'white'};color:${miReporteModo==='con'?'var(--verde)':'var(--gris)'}">Con Tierra</button>
+      <button onclick="miReporteModo='sin';renderMiReporte()" style="padding:10px 22px;border:none;cursor:pointer;font-family:'IBM Plex Sans',sans-serif;font-size:0.85rem;font-weight:600;background:${miReporteModo==='sin'?'var(--oro)':'white'};color:${miReporteModo==='sin'?'var(--verde)':'var(--gris)'}">Sin Tierra</button>
+    </div>
+    <div class="notice" style="margin-bottom:24px">💡 La tierra (${money(tierra)}) es un activo de reserva de valor pero no genera liquidez. Compará tu solvencia y rentabilidad <strong>con y sin</strong> ese activo para entender mejor la foto operativa del campo.</div>
+  ` : `<div class="notice" style="margin-bottom:24px">💡 Para habilitar la comparación Con/Sin Tierra, cargá el valor de la tierra en <strong>Activo No Corriente</strong> desde la pestaña Cargar Datos.</div>`;
+
+  function card(label, value, formula, changes) {
+    return `<div style="background:white;border-radius:8px;border:1.5px solid var(--crema-oscuro);padding:18px 20px">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:0.7rem;color:var(--gris);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">${label}</div>
+      <div style="font-family:'Playfair Display',serif;font-size:1.5rem;color:var(--verde);margin-bottom:4px">${value}</div>
+      <div style="font-size:0.72rem;color:var(--gris)">${formula}${changes && tierra>0 ? ' <span style="color:var(--oro)">●cambia con tierra</span>' : ''}</div>
+    </div>`;
+  }
+
+  let cardsHtml = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:28px">
+    ${card('Liquidez Corriente', ratio(ind.liquidez), 'Activo Cte. / Pasivo Cte.', false)}
+    ${card('Calidad de Deuda', pct(ind.calidadDeuda), 'Pasivo Cte. / Pasivo Total — menor es mejor', false)}
+    ${card('Nivel de Endeudamiento', pct(ind.endeudamiento), 'Pasivo Total / Patrimonio Neto', true)}
+    ${card('Capital de Trabajo', money(ind.ct), 'Activo Cte. − Pasivo Cte.', false)}
+    ${card('Respaldo Patrimonial', pct(ind.respaldo), 'Patrimonio Neto / Activo Total', true)}
+  </div>`;
+
+  if (p.result) {
+    cardsHtml += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-bottom:28px">
+      ${card('ROA', pct(ind.roa), 'Beneficio Neto / Activo Total', true)}
+      ${card('ROE', pct(ind.roe), 'Beneficio Neto / Patrimonio Neto', true)}
+      ${card('Beneficio Neto', money(ind.bn), 'Resultado del ejercicio', false)}
+    </div>`;
+  } else {
+    cardsHtml += `<div class="notice" style="margin-bottom:28px">Para ver ROA y ROE, cargá el <strong>Estado de Resultado</strong> en la pestaña Cargar Datos.</div>`;
+  }
+
+  const masaHtml = `
+    <div style="background:white;border-radius:8px;border:1.5px solid var(--crema-oscuro);padding:22px 24px">
+      <div style="font-family:'Playfair Display',serif;font-size:1rem;color:var(--verde-medio);margin-bottom:16px">Foto Patrimonial — ${miReporteModo==='sin'?'Sin Tierra':'Con Tierra'}</div>
+      <table style="width:100%;border-collapse:collapse;font-size:0.85rem;font-family:'IBM Plex Mono',monospace">
+        <tr style="border-bottom:1px solid var(--crema-oscuro)"><td style="padding:8px 4px">Activo Corriente</td><td style="padding:8px 4px;text-align:right">${money(ind.ac)}</td></tr>
+        ${p.anc ? `<tr style="border-bottom:1px solid var(--crema-oscuro)"><td style="padding:8px 4px">Activo No Corriente${miReporteModo==='sin'&&tierra>0?' (sin tierra)':''}</td><td style="padding:8px 4px;text-align:right">${money(p.anc.total - (miReporteModo==='sin'?tierra:0))}</td></tr>` : ''}
+        <tr style="border-bottom:1px solid var(--crema-oscuro);font-weight:600"><td style="padding:8px 4px">Activo Total</td><td style="padding:8px 4px;text-align:right">${money(ind.activoTotal)}</td></tr>
+        <tr style="border-bottom:1px solid var(--crema-oscuro)"><td style="padding:8px 4px">Pasivo Total</td><td style="padding:8px 4px;text-align:right">${money(ind.pasivoTotal)}</td></tr>
+        <tr style="background:var(--verde);color:var(--crema)"><td style="padding:10px 4px;font-weight:700">Patrimonio Neto</td><td style="padding:10px 4px;text-align:right;font-weight:700">${money(ind.pn)}</td></tr>
+      </table>
+    </div>`;
+
+  cont.innerHTML = toggleHtml + cardsHtml + masaHtml;
 }
 
 // ---- INIT ----
